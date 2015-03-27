@@ -85,9 +85,8 @@ xyOBS  <- rep(NA, npts)
 xyMIM  <- rep(NA, npts)
 xyCount<- 1
 
-#for (s in 1:nsites) {
-for (s in 1:2) {
-	
+for (s in 1:nsites) {
+
   clay   <- CLAY2/100					#convert from clay fraction to %
   tsoi   <- MAT
   nsites <- length(Site)
