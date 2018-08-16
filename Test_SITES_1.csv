@@ -1,0 +1,7 @@
+Site,SOC,SAND,CLAY,ANPP,MAT,MAP,LIG,N
+Clay40_HighMet,,10,40,500,20,,16.6,1.37
+Clay40_LowMet,,10,40,500,20,,24.4,0.73
+Clay70_LowMet,,10,70,500,20,,24.4,0.73
+Clay70_HighMet,,10,70,500,20,,16.6,1.37
+Clay5_HighMet,,50,5,500,20,,16.6,1.37
+Clay5_LowMet,,50,5,500,20,,24.4,0.73
