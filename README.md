@@ -2,10 +2,25 @@
 MIMICS Code Repository
 
 Created by Will Wieder:
-Code for used to generate sumulations for MIMICS in:
+
+Code for used to generate sumulations for MIMICS in: 
+
 Wieder et al. Geosci. Model Dev. Discuss., 8, 2011–2052, 2015  doi:10.5194/gmdd-8-2011-2015
+
 Data or findings that are based on this model, or it's derevations, please cite the manuscript above
 
+## The `Sandbox` branch is inteded to explore  some of the MIMICS functions and parameterizations
+#### MIMICS2_testing_reverseSTODEonly 
+
+_The real utility of this script is to explore sensitivity of the model to parametric changes across a range of sites._
+
+- reads in parameter file
+- uses LIDET and LTER observations
+- calculates steady state pools
+- plots against observations
+
+-------------------------------------------
+### Main repo: 
 LIDET Simulations require site level observed data (see Table C1 in GMDD manuscript, and associated citations)
 Data are included here as a seperate .csv file
 
