@@ -69,3 +69,14 @@ fSOM_p <- c(1.00E-05, -2)
 desorb <- fSOM_p[1] * exp(fSOM_p[2] * fclay) 
 desorb <- 1/(desorb * 365 * 24)
 plot(fclay,desorb)
+
+# ----- Flexible microbial stoichiometry--------
+# Parameterized as a function of litter quality
+fmet = seq(0.2,0.7,0.01)
+cnScale = sqrt(fmet/.45)
+cn_K = 10*cnScale
+cn_r = 6*cnScale
+plot(fmet,cn_K, ylim=c(3,13), ylab='microbial C:N')
+points(fmet,cn_r, col=2)
+
+

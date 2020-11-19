@@ -90,7 +90,8 @@ RXEQ <- function(t, y, pars) {
   clay  <- data$CLAY2/100  				    # if needed, convert from % clay to fraction
   tsoi  <- MAT
   nsites<- length(Site)
-  
+  tau_r[1] = tau_r[1]*1.
+  tau_K[1] = tau_K[1]*1.
   lig    <- LIG #/ 100
   Nnew   <- N                                                  #N in litter additions
   fMET1  <- fmet_p[1] * (fmet_p[2] - fmet_p[3] * lig / Nnew)   #as partitioned in Daycent
@@ -227,4 +228,7 @@ RXEQ <- function(t, y, pars) {
 abline(0,1, lty=2)
 text(10,9.5,"1:1")
 text(MIMSOC, data$SOC, labels = Site,col=1)
-
+relMIC = MIMMIC / MIMSOC
+mean(MIMSOC)
+mean(MIMMIC)
+mean(relMIC)*100
