@@ -72,11 +72,12 @@ plot(fclay,desorb)
 
 # ----- Flexible microbial stoichiometry--------
 # Parameterized as a function of litter quality
-fmet = seq(0.2,0.7,0.01)
-cnScale = sqrt(fmet/.45)
+fmet = seq(0.3,0.6,0.01)
+cnScale = sqrt(.45/fmet)
 cn_K = 10*cnScale
 cn_r = 6*cnScale
 plot(fmet,cn_K, ylim=c(3,13), ylab='microbial C:N')
 points(fmet,cn_r, col=2)
 
+points(fmet,cn_K)
 
