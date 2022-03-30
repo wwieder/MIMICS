@@ -1,23 +1,23 @@
 # Will Wieder [wwieder@ucar.edu]
-# Oct 23, 2013
-# Modified Aug, 2015; April 2016; Dec 2018
-# sets up lab incubation experiment, Feb 2022
-
-# Solve a system of non-linear equations for enzyme SOC solution
-# uses packages deSolve / rootSolve
+# sets up lab incubation experiment, 
+# Feb 2022
 
 # !! this code base has not yet been published !!
 # Please check with W. Wieder before distributing this code
 # Exlolores how we might replicate lab incubation for Macrosystem Biology project.
 
+
 rm(list=ls())
 library(rootSolve)
 
 #----------------Define function for fluxes-----------------------
-# fCHEM and fPHYS are set to zero using parameter file
-# Fluxes retained here for capatability.
+# fPHYS and (fCHEM?) are set to zero using parameter file
+# TODO add water scalar function, only uses temperature and litter quality
+# Currently model assumes historic litter quality for fMET,
+# Could also consider how historic mositure or temperature could constrain microbial physiology
+# Extra pools and fluxes retained here for capatability.
 
-#REVERSE MODEL 
+# Define the REVERSE MODEL 
 RXEQ <- function(t, y, pars) {
   with (as.list(c(y, pars)),{
     
@@ -40,19 +40,59 @@ RXEQ <- function(t, y, pars) {
     DEsorb    = SOM_1 * desorb  #* (MIC_1 + MIC_2)  	#desorbtion of PHYS to AVAIL (function of fCLAY)
     OXIDAT    = ((MIC_2 * VMAX[5] * SOM_2 / (KO[2]*KM[5] + MIC_2)) +
                    (MIC_1 * VMAX[2] * SOM_2 / (KO[1]*KM[2] + MIC_1)))  #oxidation of C to A
-    #can make fluxes from CHEM a function of microbial biomass size?
-    
+
     dLIT_1 = I[1]*(1-FI[1]) - LITmin[1] - LITmin[3]
     dMIC_1 = CUE[1]*(LITmin[1]+ SOMmin[1]) + CUE[2]*(LITmin[2]) - sum(MICtrn[1:3])
     dSOM_1 = I[1]*FI[1] + MICtrn[1] + MICtrn[4]- DEsorb 
-    CO2_1  = (1-CUE[1])*(LITmin[1]+ SOMmin[1]) + (1-CUE[2])*(LITmin[2])
+    CO2_1  = (1-CUE[1])*(LITmin[1]+ SOMmin[1]) + (1-CUE[2])*(LITmin[2])  # CO2 fluxes from MICr
 
     dLIT_2 = I[2] * (1-FI[2]) - LITmin[2] - LITmin[4]
     dMIC_2 = CUE[3]*(LITmin[3]+ SOMmin[2]) + CUE[4]*(LITmin[4]) - sum(MICtrn[4:6])  
     dSOM_2 = I[2]*FI[2] + MICtrn[2] + MICtrn[5] - OXIDAT
-    CO2_2  = (1-CUE[3])*(LITmin[3]+ SOMmin[2]) + (1-CUE[4])*(LITmin[4])
+    CO2_2  = (1-CUE[3])*(LITmin[3]+ SOMmin[2]) + (1-CUE[4])*(LITmin[4])  # CO2 fluxes from MICk
     
     dSOM_3 = MICtrn[3] + MICtrn[6] + DEsorb + OXIDAT - SOMmin[1] - SOMmin[2]
+    
+    list(c(dLIT_1, dLIT_2, dMIC_1, dMIC_2, dSOM_1, dSOM_2, dSOM_3,CO2_1,CO2_2))
+  })
+}
+
+# Define the REVERSE MODEL, here for a daily timestep
+
+RXEQ_day <- function(t, y, pars) {
+  with (as.list(c(y, pars)),{
+    
+    #Flows to and from MIC_1
+    LITmin[1] = MIC_1 * VMAX[1] * LIT_1 / (KM[1] + MIC_1)   #MIC_1 decomp of MET lit
+    LITmin[2] = MIC_1 * VMAX[2] * LIT_2 / (KM[2] + MIC_1)   #MIC_1 decomp of STRUC lit
+    MICtrn[1] = MIC_1 * tau[1]  * fPHYS[1]                  #MIC_1 turnover to PHYSICAL SOM 
+    MICtrn[2] = MIC_1 * tau[1]  * fCHEM[1]                  #MIC_1 turnover to CHEMICAL SOM  
+    MICtrn[3] = MIC_1 * tau[1]  * fAVAI[1]                  #MIC_1 turnover to AVAILABLE SOM  
+    SOMmin[1] = MIC_1 * VMAX[3] * SOM_3 / (KM[3] + MIC_1)   #decomp of SOMa by MIC_1
+    
+    #Flows to and from MIC_2
+    LITmin[3] = MIC_2 * VMAX[4] * LIT_1 / (KM[4] + MIC_2)   #decomp of MET litter
+    LITmin[4] = MIC_2 * VMAX[5] * LIT_2 / (KM[5] + MIC_2)   #decomp of SRUCTURAL litter
+    MICtrn[4] = MIC_2 * tau[2]  * fPHYS[2]                  #MIC_2 turnover to PHYSICAL  SOM 
+    MICtrn[5] = MIC_2 * tau[2]  * fCHEM[2]                  #MIC_2 turnover to CHEMICAL  SOM  
+    MICtrn[6] = MIC_2 * tau[2]  * fAVAI[2]                  #MIC_2 turnover to AVAILABLE SOM  
+    SOMmin[2] = MIC_2 * VMAX[6] * SOM_3 / (KM[6] + MIC_2)   #decomp of SOMa by MIC_2
+    
+    DEsorb    = SOM_1 * desorb  #* (MIC_1 + MIC_2)  	#desorbtion of PHYS to AVAIL (function of fCLAY)
+    OXIDAT    = ((MIC_2 * VMAX[5] * SOM_2 / (KO[2]*KM[5] + MIC_2)) +
+                   (MIC_1 * VMAX[2] * SOM_2 / (KO[1]*KM[2] + MIC_1)))  #oxidation of C to A
+    
+    dLIT_1 = 24*(I[1]*(1-FI[1]) - LITmin[1] - LITmin[3] )
+    dMIC_1 = 24*(CUE[1]*(LITmin[1]+ SOMmin[1]) + CUE[2]*(LITmin[2]) - sum(MICtrn[1:3]))
+    dSOM_1 = 24*(I[1]*FI[1] + MICtrn[1] + MICtrn[4]- DEsorb )
+    CO2_1  = 24*((1-CUE[1])*(LITmin[1]+ SOMmin[1]) + (1-CUE[2])*(LITmin[2]) ) # CO2 fluxes from MICr
+    
+    dLIT_2 = 24*(I[2] * (1-FI[2]) - LITmin[2] - LITmin[4])
+    dMIC_2 = 24*(CUE[3]*(LITmin[3]+ SOMmin[2]) + CUE[4]*(LITmin[4]) - sum(MICtrn[4:6])  )
+    dSOM_2 = 24*(I[2]*FI[2] + MICtrn[2] + MICtrn[5] - OXIDAT)
+    CO2_2  = 24*((1-CUE[3])*(LITmin[3]+ SOMmin[2]) + (1-CUE[4])*(LITmin[4])  )# CO2 fluxes from MICk
+    
+    dSOM_3 = 24*(MICtrn[3] + MICtrn[6] + DEsorb + OXIDAT - SOMmin[1] - SOMmin[2])
     
     list(c(dLIT_1, dLIT_2, dMIC_1, dMIC_2, dSOM_1, dSOM_2, dSOM_3,CO2_1,CO2_2))
   })
@@ -73,7 +113,6 @@ attach(data)
 
 ANPP    <- ANPP / 2       			# convert to gC/m2/y from g/m2/y
 clay   <- CLAY2/100  				    # convert from clay fraction to %
-tsoi   <- MAT
 nsites <- length(Site)
 
 lig    <- LIG/100
@@ -99,13 +138,12 @@ table
 
 #TODO, loop over sites and experiments
 i <- 1
-
-fMET       <- fMET1[i] 
-fCLAY      <- clay[i]
-TSOI       <- tsoi[i]
-
-## overwrite for controled lab experiment
-TSOI <- 25
+fMET    <- fMET1[i] 
+fCLAY   <- clay[i]
+mat     <- MAT[i]
+map     <- MAP[i]
+## set temperature for controled lab experiment
+TSOI  <- 25
 theta <- 40
 
 EST_LIT_in <- ANPP[i] / (365*24) # gC/m2/h (from gC/m2/y)
@@ -217,15 +255,16 @@ for (d in 1:nday)  {
 
 
 par(mfrow=c(3,1),mar=c(0,4,3,2))
-miny = min(LIT)*1.6
+maxy = max(LIT)*1.01
+miny = min(LIT)*0.9
 x = seq(1,nday)
 plot(x,LIT[1,],col=1,type='l',lwd=2,
      xlab=NA,ylab='Litter C Remaining', xaxt='n',
-     )
+     ylim=c(miny,maxy) ,main='Hourly function' )
 at1 <- seq(0, 200, 50)
 axis(side =1, at1, labels = F)
 lines(x,LIT[2,],lwd=2,col=2)
-legend(-8,miny,c('LITs','LITm'),
+legend(-8,(maxy+miny)/2,c('LITs','LITm'),
        text.col=c(2,1),text.font = (cex=2),
        bty = "n")
 
@@ -253,5 +292,111 @@ plot(x,CO2_calc,col=1,lwd=2,type='l',
      xlab='day',ylab='CO2 (fraction of initial)' )
 lines(x,CO2_mod,lwd=2,col=4)
 
-#plot(x,totalC)
+normRate = CO2_mod/colSums(LIT)[1]/(x*24)
+plot(x,normRate)
+
+
+# -----------------
+# Repeat with daily function
+# -----------------
+
+
+#initialize arrays to store daily output data
+r.names = c('LITm','LITs')
+LIT    <- array(NA, dim = c(2,nday), dimnames = list(r.names,NULL))
+r.names = c('MICr','MICk')
+MIC    <- array(NA, dim = c(2,nday), dimnames = list(r.names,NULL))
+CO2    <- array(NA, dim = c(2,nday), dimnames = list(r.names,NULL))
+r.names = c('SOMp','SOMc','SOMa')
+SOM    <- array(NA, dim = c(3,nday), dimnames = list(r.names,NULL))
+
+#initialize pools and fluxes
+I        <- rep(0,2)
+LIT_1    <- 100   
+LIT_2    <- 100
+MIC_1    <- 0.01
+MIC_2    <- 0.01
+SOM_1    <- 0
+SOM_2    <- 0
+SOM_3    <- 0
+CO2_1    <- 0
+CO2_2    <- 0
+
+# Loop over days
+for (d in 1:nday)  {
+
+    UPpars  <- c( I = I, VMAX = VMAX, KM = KM, CUE = CUE, 
+                  fPHYS = fPHYS, fCHEM = fCHEM, fAVAI = fAVAI, FI = FI, 
+                  tau   = tau, LITmin = LITmin, SOMmin = SOMmin, MICtrn = MICtrn, 
+                  desorb= desorb, DEsorb = DEsorb, OXIDAT = OXIDAT, KO = KO)
+    UPy     <- c( LIT_1 = LIT_1, LIT_2 = LIT_2, 
+                  MIC_1 = MIC_1, MIC_2 = MIC_2, 
+                  SOM_1 = SOM_1, SOM_2 = SOM_2, SOM_3 = SOM_3 )
+    update <- RXEQ_day(y = UPy, pars = UPpars)
+    
+    LIT_1  <- LIT_1 + update[[1]][1]
+    LIT_2  <- LIT_2 + update[[1]][2]
+    MIC_1  <- MIC_1 + update[[1]][3]
+    MIC_2  <- MIC_2 + update[[1]][4]
+    SOM_1  <- SOM_1 + update[[1]][5]
+    SOM_2  <- SOM_2 + update[[1]][6]
+    SOM_3  <- SOM_3 + update[[1]][7]
+    CO2_1  <- CO2_1 + update[[1]][8]
+    CO2_2  <- CO2_2 + update[[1]][9]
+    remove(UPpars, UPy, update)
+    
+    #write out daily results
+    LIT[1,d] <- LIT_1
+    LIT[2,d] <- LIT_2
+    MIC[1,d] <- MIC_1
+    MIC[2,d] <- MIC_2
+    SOM[1,d] <- SOM_1
+    SOM[2,d] <- SOM_2
+    SOM[3,d] <- SOM_3
+    CO2[1,d] <- CO2_1
+    CO2[2,d] <- CO2_2
+}								#close daily loop
+
+
+par(mfrow=c(3,1),mar=c(0,4,3,2))
+maxy = max(LIT)*1.01
+miny = min(LIT)*0.9
+x = seq(1,nday)
+plot(x,LIT[1,],col=1,type='l',lwd=2,
+     xlab=NA,ylab='Litter C Remaining', xaxt='n',
+     ylim=c(miny,maxy),main='Daily function' )
+at1 <- seq(0, 200, 50)
+axis(side =1, at1, labels = F)
+lines(x,LIT[2,],lwd=2,col=2)
+legend(-8,(maxy+miny)/2,c('LITs','LITm'),
+       text.col=c(2,1),text.font = (cex=2),
+       bty = "n")
+
+
+par(mar=c(1.5,4,1.5,2))
+maxy = max(c(MIC))*1.1
+plot(x,MIC[1,],col=1,lwd=2,type='l',
+     xlab=NA,ylab='Microbial and Soil C',
+     ylim=c(1e-2,maxy), xaxt='n')
+at1 <- seq(0, 200, 50)
+axis(side =1, at1, labels = F)
+lines(x,MIC[2,],lwd=2,col=2)
+lines(x,SOM[3,],lwd=2,col=4)
+lines(x,SOM[2,],lwd=2,col=5)
+legend(-8,maxy,c('SOMc','SOMa','MICk','MICr'),
+       text.col=c(5,4,2,1),text.font = (cex=2),
+       bty = "n")
+
+par(mar=c(3,4,0,2))
+totalC = colSums(LIT)+colSums(MIC)+colSums(SOM)
+initC = totalC[1]
+CO2_calc = (initC - totalC) / initC
+CO2_mod = colSums(CO2) / initC
+plot(x,CO2_calc,col=1,lwd=2,type='l',
+     xlab='day',ylab='CO2 (fraction of initial)' )
+lines(x,CO2_mod,lwd=2,col=4)
+
+normRate = CO2_mod/colSums(LIT)[1]/(x*24)
+plot(x,normRate)
+
 
